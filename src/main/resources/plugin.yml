@@ -1,0 +1,4 @@
+name: ServerStats
+version: 1.0
+main: dev.woter.serverstats.ServerStatsPlugin
+api-version: "1.21"

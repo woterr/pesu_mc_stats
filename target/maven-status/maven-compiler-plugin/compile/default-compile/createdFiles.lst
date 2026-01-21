@@ -1,0 +1,9 @@
+dev/woter/serverstats/PlayerStats.class
+dev/woter/serverstats/StatsHttpServer.class
+dev/woter/serverstats/ServerStatsPlugin.class
+dev/woter/serverstats/mongo/MongoPusher.class
+dev/woter/serverstats/StatsStorage.class
+dev/woter/serverstats/PlayerStatsStorage.class
+dev/woter/App.class
+dev/woter/serverstats/mongo/MongoService.class
+dev/woter/serverstats/StatsListener.class
