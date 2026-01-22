@@ -10,6 +10,9 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
 import org.bson.Document;
+import org.bukkit.advancement.Advancement;
+import org.bukkit.NamespacedKey;
+import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 
 public class StatsListener implements Listener {
 
@@ -52,6 +55,16 @@ public class StatsListener implements Listener {
             );
 
             mongo().inc(p.getUniqueId().toString(), "total_joins", 1);
+
+            Document duelSnap =
+                DuelStatsAggregator.buildSnapshot(
+                    p.getUniqueId().toString(),
+                    p.getName()
+                );
+
+            if (duelSnap != null) {
+                mongo().upsertDuelSnapshot(duelSnap);
+            }
         }
     }
 
@@ -198,4 +211,24 @@ public class StatsListener implements Listener {
             default -> {}
         }
     }
+
+    @EventHandler
+    public void onAdvancement(PlayerAdvancementDoneEvent event) {
+        Player p = event.getPlayer();
+        Advancement adv = event.getAdvancement();
+        NamespacedKey key = adv.getKey();
+
+        if (!"minecraft".equals(key.getNamespace())) return;
+
+        if (adv.getDisplay() == null) return;
+
+        if (mongo() != null) {
+            mongo().inc(
+                p.getUniqueId().toString(),
+                "advancements",
+                1
+            );
+        }
+    }
+
 }

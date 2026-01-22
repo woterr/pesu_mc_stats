@@ -10,4 +10,4 @@ mongo:
   database: "MONGO_DB_NAME"
 
 stats:
-  mongo_push_interval_seconds: 10
+  mongo_push_interval_seconds: 30

@@ -13,7 +13,6 @@ import java.util.Map;
 public final class DuelStatsAggregator {
 
     private DuelStatsAggregator() {}
-
     public static Document buildSnapshot(String uuid, String name) {
         try {
             File dir = new File(Bukkit.getPluginsFolder(), "Duels/users");
@@ -35,25 +34,28 @@ public final class DuelStatsAggregator {
                 );
 
             JSONArray matches = root.optJSONArray("matches");
-            if (matches == null) {
-                doc.append("total_matches", 0);
+            if (matches == null || matches.isEmpty()) {
+                doc.append("total_matches", 0)
+                .append("last_match_ts", 0L);
                 return doc;
             }
 
             Map<String, KitAgg> kits = new HashMap<>();
-            long lastMatchTs = 0;
+            long lastMatchTs = 0L;
 
             for (int i = 0; i < matches.length(); i++) {
                 JSONObject m = matches.getJSONObject(i);
 
                 String kit = m.optString("kit", "Unknown");
-                String winner = m.optString("winner");
-                String loser = m.optString("loser");
+                String winner = m.optString("winner", "");
+                String loser = m.optString("loser", "");
 
                 long duration = m.optLong("duration", 0);
                 long time = m.optLong("time", 0);
 
-                lastMatchTs = Math.max(lastMatchTs, time);
+                if (time > 0 && time > lastMatchTs) {
+                    lastMatchTs = time;
+                }
 
                 KitAgg agg = kits.computeIfAbsent(kit, k -> new KitAgg());
                 agg.played++;
@@ -83,8 +85,8 @@ public final class DuelStatsAggregator {
             }
 
             doc.append("kits", kitDoc)
-               .append("total_matches", matches.length())
-               .append("last_match_ts", lastMatchTs);
+            .append("total_matches", matches.length())
+            .append("last_match_ts", lastMatchTs);
 
             return doc;
 
@@ -92,6 +94,7 @@ public final class DuelStatsAggregator {
             return null;
         }
     }
+
 
     private static final class KitAgg {
         int played = 0;

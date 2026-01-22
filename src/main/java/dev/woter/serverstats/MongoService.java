@@ -111,6 +111,17 @@ public class MongoService {
         return duels;
     }
 
+    public void markAllPlayersOffline(long ts) {
+        players.updateMany(
+            new Document("online", true),
+            new Document("$set",
+                new Document("online", false)
+                    .append("last_seen_ts", ts)
+            )
+        );
+    }
+
+
     public void close() {
         client.close();
     }
