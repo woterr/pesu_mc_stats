@@ -21,6 +21,7 @@ public class ServerStatsPlugin extends JavaPlugin {
     public static String HTTP_TOKEN;
     public static boolean HTTP_ENABLED;
     public static MongoService mongoService;
+    public static long totalUniqueJoins = 0L;
 
     public static PlayerStatsStorage playerStorage;
     public static Map<UUID, PlayerStats> onlinePlayers = new HashMap<>();
@@ -48,16 +49,37 @@ public class ServerStatsPlugin extends JavaPlugin {
             String uri = getConfig().getString("mongo.uri");
             String db = getConfig().getString("mongo.database");
             int interval = getConfig().getInt(
-                    "stats.mongo_push_interval_seconds", 10);
+                    "stats.mongo_push_interval_seconds", 30);
 
             mongoService = new MongoService(uri, db);
-
+            
             Bukkit.getScheduler().runTaskTimerAsynchronously(
-                    this,
-                    new MongoPusher(mongoService),
-                    interval * 20L,
-                    interval * 20L
+                this,
+                new MongoPusher(mongoService),
+                interval * 20L,
+                interval * 20L
             );
+
+            Bukkit.getScheduler().runTaskTimer(this, () -> {
+                long now = System.currentTimeMillis();
+
+                for (PlayerStats stats : onlinePlayers.values()) {
+                    long delta = now - stats.sessionStartTime;
+                    if (delta <= 0) continue;
+
+                    stats.totalPlaytimeMs += delta;
+                    stats.sessionStartTime = now;
+
+                    if (mongoService != null) {
+                        mongoService.inc(
+                            stats.uuid.toString(),
+                            "total_playtime_ms",
+                            delta
+                        );
+                    }
+                }
+            }, 20L * 60, 20L * 60);
+
 
             getLogger().info("MongoDB metrics enabled (interval=" + interval + "s)");
         }

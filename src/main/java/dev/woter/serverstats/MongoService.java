@@ -13,6 +13,8 @@ public class MongoService {
 
     private final MongoCollection<Document> serverMetrics;
     private final MongoCollection<Document> players;
+    private final MongoCollection<Document> duels;
+
 
     public MongoService(String uri, String dbName) {
         this.client = MongoClients.create(uri);
@@ -20,71 +22,93 @@ public class MongoService {
 
         this.serverMetrics = db.getCollection("server_metrics");
         this.players = db.getCollection("players");
+        this.duels = db.getCollection("duels");
 
         players.createIndex(Indexes.ascending("uuid"), new IndexOptions().unique(true));
-        serverMetrics.createIndex(Indexes.ascending("timestamp"));
+        serverMetrics.createIndex(Indexes.descending("timestamp"));
+        duels.createIndex(Indexes.ascending("uuid"), new IndexOptions().unique(true));
     }
+
+
     public void insertServerMetrics(Document doc) {
         serverMetrics.insertOne(doc);
     }
 
-    public void onPlayerJoin(String uuid, String name, long now) {
+    // public void incServer(String field, long by) {
+    //     serverMetrics.updateOne(
+    //         new Document("_id", "server"),
+    //         Updates.inc(field, by),
+    //         new UpdateOptions().upsert(true)
+    //     );
+    // }
+
+
+    public void upsertPlayer(Document doc) {
+        String uuid = doc.getString("uuid");
+
+        Document set = new Document(doc);
+        Object firstJoin = set.remove("first_join_ts");
+
+        Document update = new Document("$set", set)
+            .append("$currentDate", new Document("updated_at", true));
+
+        if (firstJoin != null) {
+            update.append("$setOnInsert", new Document("first_join_ts", firstJoin));
+        }
+
+        players.updateOne(eq("uuid", uuid), update, new UpdateOptions().upsert(true));
+    }
+
+    public void upsertPlayerSnapshot(Document snapshot) {
+        players.updateOne(
+            eq("uuid", snapshot.getString("uuid")),
+            new Document("$set", snapshot)
+                .append("$currentDate", new Document("updated_at", true)),
+            new UpdateOptions().upsert(true)
+        );
+    }
+    public void inc(String uuid, String field, int by) {
         players.updateOne(
             eq("uuid", uuid),
             Updates.combine(
-                Updates.set("name", name),
-                Updates.set("online", true),
-                Updates.set("last_seen_ts", now),
-                Updates.inc("total_joins", 1),
-                Updates.setOnInsert("first_join_ts", now),
+                Updates.inc(field, by),
                 Updates.currentDate("updated_at")
-            ),
+            )
+        );
+    }
+
+    public void inc(String uuid, String field, long by) {
+        players.updateOne(
+            eq("uuid", uuid),
+            Updates.combine(
+                Updates.inc(field, by),
+                Updates.currentDate("updated_at")
+            )
+        );
+    }
+
+    public void set(String uuid, String field, Object value) {
+        players.updateOne(
+            eq("uuid", uuid),
+            Updates.combine(
+                Updates.set(field, value),
+                Updates.currentDate("updated_at")
+            )
+        );
+    }
+
+    public void upsertDuelSnapshot(Document doc) {
+        duels.updateOne(
+            eq("uuid", doc.getString("uuid")),
+            new Document("$set", doc)
+                .append("$currentDate", new Document("updated_at", true)),
             new UpdateOptions().upsert(true)
         );
     }
 
-    public void onPlayerQuit(String uuid, long playtimeDelta, long now) {
-        players.updateOne(
-            eq("uuid", uuid),
-            Updates.combine(
-                Updates.set("online", false),
-                Updates.set("last_seen_ts", now),
-                Updates.inc("total_playtime_ms", playtimeDelta),
-                Updates.currentDate("updated_at")
-            )
-        );
-    }
 
-    public void incField(String uuid, String field) {
-        players.updateOne(
-            eq("uuid", uuid),
-            Updates.combine(
-                Updates.inc(field, 1),
-                Updates.currentDate("updated_at")
-            )
-        );
-    }
-
-    public void addAdvancement(String uuid, String key) {
-        players.updateOne(
-            eq("uuid", uuid),
-            Updates.combine(
-                Updates.addToSet("advancements", key),
-                Updates.inc("advancement_count", 1),
-                Updates.currentDate("updated_at")
-            )
-        );
-    }
-
-    public void heartbeat(String uuid, long playtimeDelta) {
-        players.updateOne(
-            eq("uuid", uuid),
-            Updates.combine(
-                Updates.inc("total_playtime_ms", playtimeDelta),
-                Updates.set("online", true),
-                Updates.currentDate("updated_at")
-            )
-        );
+    public MongoCollection<Document> getDuelsCollection() {
+        return duels;
     }
 
     public void close() {
