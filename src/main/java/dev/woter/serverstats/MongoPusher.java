@@ -9,6 +9,13 @@ import oshi.hardware.CentralProcessor;
 import oshi.hardware.GlobalMemory;
 import oshi.software.os.OSProcess;
 import oshi.software.os.OperatingSystem;
+import java.io.File;
+import java.nio.file.Files;
+
+import org.json.JSONObject;
+
+import dev.woter.serverstats.duels.DuelStatsReader;
+import dev.woter.serverstats.duels.DuelStatsAggregator;
 
 import java.util.Date;
 
@@ -32,8 +39,9 @@ public class MongoPusher implements Runnable {
     public void run() {
         try {
             pushServerMetrics();
+            pushAllDuelSnapshots();
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[Mongo] Server push failed");
+            Bukkit.getLogger().warning("[Mongo] Mongo push failed");
             e.printStackTrace();
         }
     }
@@ -91,4 +99,37 @@ public class MongoPusher implements Runnable {
 
         mongo.insertServerMetrics(doc);
     }
+
+    private void pushAllDuelSnapshots() {
+        File dir = new File(
+            Bukkit.getPluginsFolder(),
+            "Duels/users"
+        );
+
+        if (!dir.exists() || !dir.isDirectory()) return;
+
+        File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
+        if (files == null) return;
+
+        for (File file : files) {
+            try {
+                String uuid = file.getName().replace(".json", "");
+                JSONObject raw = DuelStatsReader.read(uuid);
+                if (raw == null) continue;
+
+                String name = raw.optString("name", null);
+                if (name == null || name.isBlank()) continue;
+
+                Document snap =
+                    DuelStatsAggregator.buildSnapshot(uuid, name);
+
+                if (snap != null) {
+                    mongo.upsertDuelSnapshot(snap);
+                }
+            } catch (Exception ignored) {
+                // one bad file should not break the loop
+            }
+        }
+    }
+
 }

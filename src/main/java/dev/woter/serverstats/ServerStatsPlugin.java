@@ -12,8 +12,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public class ServerStatsPlugin extends JavaPlugin {
-
-    // ===== GLOBAL STATE =====
     public static long serverStartTime;
     public static long totalRuntimeMs = 0;
 
@@ -26,13 +24,11 @@ public class ServerStatsPlugin extends JavaPlugin {
 
     public static final Map<UUID, PlayerStats> onlinePlayers = new HashMap<>();
 
-    // ===== HTTP =====
     public static boolean HTTP_ENABLED;
     public static String HTTP_HOST;
     public static int HTTP_PORT;
     public static String HTTP_TOKEN;
 
-    // ===== MONGO =====
     public static MongoService mongoService;
 
     private StatsHttpServer httpServer;
@@ -41,22 +37,18 @@ public class ServerStatsPlugin extends JavaPlugin {
     public void onEnable() {
         serverStartTime = System.currentTimeMillis();
 
-        // ---- storage ----
         storage = new StatsStorage(this);
         storage.load();
 
         playerStorage = new PlayerStatsStorage(this);
 
         saveDefaultConfig();
-
-        // ---- mongo ----
         if (getConfig().getBoolean("mongo.enabled", false)) {
             mongoService = new MongoService(
                 getConfig().getString("mongo.uri"),
                 getConfig().getString("mongo.database")
             );
 
-            // hard reset online state on boot (crash-safe)
             mongoService.markAllPlayersOffline(System.currentTimeMillis());
 
             int interval = getConfig().getInt(
@@ -71,7 +63,6 @@ public class ServerStatsPlugin extends JavaPlugin {
             );
         }
 
-        // ---- HTTP ----
         HTTP_ENABLED = getConfig().getBoolean("http.enabled", true);
         HTTP_HOST = getConfig().getString("http.host", "127.0.0.1");
         HTTP_PORT = getConfig().getInt("http.port", 6767);
@@ -87,7 +78,6 @@ public class ServerStatsPlugin extends JavaPlugin {
             }
         }
 
-        // ---- online players at enable (reload-safe) ----
         for (Player p : Bukkit.getOnlinePlayers()) {
             long now = System.currentTimeMillis();
 
@@ -109,12 +99,10 @@ public class ServerStatsPlugin extends JavaPlugin {
             }
         }
 
-        // ---- listeners ----
         Bukkit.getPluginManager().registerEvents(
             new StatsListener(), this
         );
 
-        // ---- playtime tick (authoritative) ----
         Bukkit.getScheduler().runTaskTimer(
             this,
             () -> tickPlaytime(),

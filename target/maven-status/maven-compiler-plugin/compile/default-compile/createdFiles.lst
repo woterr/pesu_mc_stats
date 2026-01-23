@@ -1,6 +1,5 @@
 dev/woter/serverstats/PlayerStats.class
 dev/woter/serverstats/StatsListener$1.class
-dev/woter/serverstats/duels/DuelStatsAggregator$KitAgg.class
 dev/woter/serverstats/ServerStatsPlugin.class
 dev/woter/serverstats/mongo/MongoPusher.class
 dev/woter/serverstats/PlayerStatsStorage.class
